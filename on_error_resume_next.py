@@ -1,36 +1,63 @@
 import imp, ast, sys, inspect
 
 
-def on_error_resume_next(file_, path):
+def on_error_resume_next(path):
+    file_ = open(path)
     tree = ast.parse(file_.read(), path)
     OnErrorResumeNextVisitor().visit(tree)
     ast.fix_missing_locations(tree)
     return compile(tree, path, 'exec')
 
 
-class OnErrorResumeNextHook(object):
-    def __init__(self):
-        self.module_code = {}
-
-    def find_module(self, name, path=None):
-        file_, path, desc = imp.find_module(name, path)
-        if not file_:
-            return
-        try:
-            if desc[2] != imp.PY_SOURCE:
-                return None
-            code  = on_error_resume_next(file_)
-        finally:
+class OnErrorResumeNextFinder(object):
+    def _find_module(self, name, path):
+        name = name.split('.')[-1]
+        path = path and [path]
+        file_, file_path, desc = imp.find_module(name, path)
+        if file_:
             file_.close()
-        self.module_code[name] = code
-        return self
+        return file_path, desc
+
+    def find_module(self, name, search_path=None):
+        file_path, desc = self._find_module(name, search_path)
+        if desc[2] == imp.PKG_DIRECTORY:
+            return OnErrorResumeNextLoader(file_path+'/__init__.py',
+                                           file_path)
+        elif desc[2] == imp.PY_SOURCE:
+            return OnErrorResumeNextLoader(file_path)
+        else:
+            return
+
+
+class OnErrorResumeNextLoader(object):
+    def __init__(self, file_path, module_path=None):
+        self.file_path = file_path
+        self.module_path = module_path
+
+    def _compile(self):
+        return on_error_resume_next(self.file_path)
 
     def load_module(self, name):
-        mod = imp.new_module(name)
-        co = self.module_code.pop(name)
-        eval(co, mod.__dict__)
-        sys.modules[name] = mod
+        mod = sys.modules.setdefault(name, imp.new_module(name))
+        mod.__loader__ = self
+        co = self._compile()
+        if self.module_path:
+            mod.__path__ = self.module_path
+            mod.__package__ = name
+        else:
+            mod.__package__ = name.rpartition('.')[0]
+        mod.__file__ = self.file_path
+        exec(co, mod.__dict__)
         return mod
+
+    def get_code(self, name):
+        return self._compile()
+
+    def get_source(self, name):
+        return open(self.file_path).read()
+
+    def get_filename(self, name):
+        return self.file_path
 
 
 class OnErrorResumeNextVisitor(ast.NodeTransformer):
@@ -69,16 +96,17 @@ class OnErrorResumeNextVisitor(ast.NodeTransformer):
         return node
 
 # Patch the world
-sys.meta_path.insert(0, OnErrorResumeNextHook())
+sys.meta_path.insert(0, OnErrorResumeNextFinder())
 
 # If this import was from the main module rerun it
 stack = inspect.stack()
 try:
     if len(stack) == 2 and stack[1][0].f_locals.get('__name__') == '__main__':
         file_path = stack[1][1]
-        mod = imp.new_module('__name__')
-        sys.modules['__name__'] = mod
-        code = on_error_resume_next(open(file_path), file_path)
+        mod = imp.new_module('__main__')
+        mod.__name__ = '__main__'
+        sys.modules['__main__']
+        code = on_error_resume_next(file_path)
         eval(code, mod.__dict__)
         sys.exit()
 finally:
