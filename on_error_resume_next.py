@@ -1,6 +1,5 @@
 import imp, ast, sys, inspect
 
-
 def on_error_resume_next(path):
     file_ = open(path)
     tree = ast.parse(file_.read(), path)
@@ -77,7 +76,7 @@ class OnErrorResumeNextVisitor(ast.NodeTransformer):
         ast.TryFinally,
         ast.Assert, # I like this one
         ast.Import,
-        ast.ImportFrom,
+        # ast.ImportFrom, from __future__ import can't be in a try
         ast.Exec,
         ast.Global,
         ast.Expr,
@@ -86,13 +85,22 @@ class OnErrorResumeNextVisitor(ast.NodeTransformer):
         ast.Continue
     )
 
+    def make_try(self, node):
+        return ast.TryExcept([node],
+                             [ast.ExceptHandler(None, None, [ast.Pass()])],
+                             [])
+
     def visit(self, node):
         node = ast.NodeTransformer.visit(self, node)
         if isinstance(node, self.stmt):
-            node = ast.TryExcept([node],
-                                 [ast.ExceptHandler(None, None, [ast.Pass()])],
-                                 [])
+            node = self.make_try(node)
         return node
+
+    def visit_ImportFrom(self, node):
+        if node.module != '__future__':
+            node = self.make_try(node)
+        return node
+
 
 # Patch the world
 sys.meta_path.insert(0, OnErrorResumeNextFinder())
