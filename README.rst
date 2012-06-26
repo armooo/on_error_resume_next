@@ -47,7 +47,7 @@ sample2.py::
     import sample3
 
     print 'test'
-    test1.fail()
+    sample3.fail()
     print 'still testing'
 
 run::
