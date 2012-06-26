@@ -12,7 +12,6 @@ def on_error_resume_next(path):
 class OnErrorResumeNextFinder(object):
     def _find_module(self, name, path):
         name = name.split('.')[-1]
-        path = path and [path]
         file_, file_path, desc = imp.find_module(name, path)
         if file_:
             file_.close()
@@ -22,7 +21,7 @@ class OnErrorResumeNextFinder(object):
         file_path, desc = self._find_module(name, search_path)
         if desc[2] == imp.PKG_DIRECTORY:
             return OnErrorResumeNextLoader(file_path+'/__init__.py',
-                                           file_path)
+                                           [file_path])
         elif desc[2] == imp.PY_SOURCE:
             return OnErrorResumeNextLoader(file_path)
         else:
