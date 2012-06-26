@@ -1,9 +1,10 @@
 On Error Resume Next
 ---------------------------------------------------------------------------
 Need the best of VB in python. Now you can have even better, on error resume
-will infect all modules imported after it.  It preforms an AST transformation
-on all imported modules that replaces each statement with a try/except/pass.
-If you import it from a main module it will rewrite the module then rerun it.
+next will infect all modules imported after it.  It preforms an AST
+transformation on all imported modules that replaces each statement with a
+try/except/pass.  If you import it from a main module it will rewrite the
+module then rerun it.
 
 Examples
 ---------------------------------------------------------------------------
