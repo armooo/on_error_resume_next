@@ -105,7 +105,7 @@ try:
         file_path = stack[1][1]
         mod = imp.new_module('__main__')
         mod.__name__ = '__main__'
-        sys.modules['__main__']
+        sys.modules['__main__'] = mod
         code = on_error_resume_next(file_path)
         eval(code, mod.__dict__)
         sys.exit()
